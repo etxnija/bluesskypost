@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Post">
+  <meta name="theme-color" content="#121212">
+  <title>Post to Bluesky</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --card-bg: #1c1c1e;
+      --border: #2c2c2e;
+      --text: #f2f2f7;
+      --text-muted: #8e8e93;
+      --accent: #0085ff;
+      --accent-hover: #0071db;
+      --danger: #ff453a;
+      --danger-hover: #d32f2f;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: env(safe-area-inset-top, 20px) env(safe-area-inset-right, 16px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 16px);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      letter-spacing: -0.01em;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .user-pill {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 260px;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      background-color: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      resize: none;
+      height: 140px;
+      line-height: 1.45;
+    }
+
+    .actions-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .counter {
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+    }
+
+    .counter.warning {
+      color: #ffd60a;
+    }
+
+    .counter.over {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    button {
+      background-color: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-text {
+      background: transparent;
+      color: var(--danger);
+      font-size: 0.8rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .btn-text:hover {
+      background: rgba(255, 69, 58, 0.1);
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      line-height: 1.3;
+      min-height: 1.2em;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .status.success {
+      color: #30d158;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Login Card -->
+    <div id="login-view" class="card">
+      <h1>Sign in to Bluesky</h1>
+      <form id="login-form">
+        <div class="field">
+          <label for="identifier">Handle or Email</label>
+          <input type="text" id="identifier" placeholder="handle.bsky.social" autocomplete="username" autocapitalize="none" required>
+        </div>
+        <div class="field">
+          <label for="password">App Password</label>
+          <input type="password" id="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" required>
+        </div>
+        <button type="submit" id="login-button">Sign In</button>
+      </form>
+      <div id="login-status" class="status"></div>
+    </div>
+
+    <!-- Composer Card -->
+    <div id="composer-view" class="card hidden">
+      <div class="header-bar">
+        <span id="user-display" class="user-pill"></span>
+        <button type="button" id="logout-button" class="btn-text">Disconnect</button>
+      </div>
+      <form id="post-form">
+        <textarea id="post-text" placeholder="What's happening?" autofocus></textarea>
+        <div class="actions-bar">
+          <span id="char-counter" class="counter">300</span>
+          <button type="submit" id="post-button" disabled>Post</button>
+        </div>
+      </form>
+      <div id="composer-status" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const PDS_URL = "https://bsky.social";
+      const MAX_GRAPHEMES = 300;
+      const MAX_BYTES = 3000;
+      const STORAGE_KEY = "bsky_minimal_session";
+
+      // Unicode segmenter for exact grapheme clustering
+      const segmenter = ("Segmenter" in Intl)
+        ? new Intl.Segmenter("en", { granularity: "grapheme" })
+        : null;
+
+      const encoder = new TextEncoder();
+
+      // UI Elements
+      const loginView = document.getElementById("login-view");
+      const composerView = document.getElementById("composer-view");
+      const loginForm = document.getElementById("login-form");
+      const postForm = document.getElementById("post-form");
+      const identifierInput = document.getElementById("identifier");
+      const passwordInput = document.getElementById("password");
+      const loginButton = document.getElementById("login-button");
+      const postText = document.getElementById("post-text");
+      const postButton = document.getElementById("post-button");
+      const charCounter = document.getElementById("char-counter");
+      const userDisplay = document.getElementById("user-display");
+      const logoutButton = document.getElementById("logout-button");
+      const loginStatus = document.getElementById("login-status");
+      const composerStatus = document.getElementById("composer-status");
+
+      // Session Management
+      function getSession() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
+        }
+      }
+
+      function saveSession(session) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      }
+
+      function clearSession() {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+
+      // Exact Grapheme Counter
+      function countGraphemes(text) {
+        if (!text) return 0;
+        if (segmenter) {
+          return [...segmenter.segment(text)].length;
+        }
+        return Array.from(text).length;
+      }
+
+      // Facet Link Detection with exact UTF-8 byte boundary computation
+      function detectLinkFacets(text) {
+        const facets = [];
+        const urlRegex = /https?:\/\/[^\s<>()]+[^\s`!()\[\]{};:'".,<>?«»“”‘’]/gi;
+        let match;
+
+        while ((match = urlRegex.exec(text)) !== null) {
+          const url = match[0];
+          const charStart = match.index;
+
+          const byteStart = encoder.encode(text.slice(0, charStart)).byteLength;
+          const byteEnd = byteStart + encoder.encode(url).byteLength;
+
+          facets.push({
+            index: { byteStart, byteEnd },
+            features: [
+              {
+                $type: "app.bsky.richtext.facet#link",
+                uri: url,
+              },
+            ],
+          });
+        }
+
+        return facets.length > 0 ? facets : undefined;
+      }
+
+      // Render View States
+      function updateView() {
+        const session = getSession();
+        if (session && session.accessJwt) {
+          loginView.classList.add("hidden");
+          composerView.classList.remove("hidden");
+          userDisplay.textContent = session.handle || session.did;
+          postText.focus();
+        } else {
+          composerView.classList.add("hidden");
+          loginView.classList.remove("hidden");
+          passwordInput.value = "";
+        }
+      }
+
+      function setStatus(el, msg, type = "") {
+        el.textContent = msg;
+        el.className = "status " + type;
+      }
+
+      // Character / Post Validation
+      function handleTextChange() {
+        const text = postText.value;
+        const graphemes = countGraphemes(text);
+        const bytes = encoder.encode(text).byteLength;
+        const remaining = MAX_GRAPHEMES - graphemes;
+
+        charCounter.textContent = remaining;
+
+        if (remaining < 0 || bytes > MAX_BYTES) {
+          charCounter.className = "counter over";
+          postButton.disabled = true;
+        } else if (remaining <= 20) {
+          charCounter.className = "counter warning";
+          postButton.disabled = graphemes === 0;
+        } else {
+          charCounter.className = "counter";
+          postButton.disabled = graphemes === 0;
+        }
+      }
+
+      // Automatic Refresh Interceptor
+      async function refreshToken(session) {
+        try {
+          const res = await fetch(`${PDS_URL}/xrpc/com.atproto.server.refreshSession`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${session.refreshJwt}`,
+            },
+          });
+
+          if (!res.ok) throw new Error("Session expired");
+
+          const data = await res.json();
+          const updated = {
+            ...session,
+            accessJwt: data.accessJwt,
+            refreshJwt: data.refreshJwt,
+            handle: data.handle || session.handle,
+          };
+          saveSession(updated);
+          return updated;
+        } catch {
+          clearSession();
+          updateView();
+          setStatus(loginStatus, "Session expired. Please sign in again.", "error");
+          return null;
+        }
+      }
+
+      // Login Action
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setStatus(loginStatus, "");
+        loginButton.disabled = true;
+
+        const identifier = identifierInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        try {
+          const res = await fetch(`${PDS_URL}/xrpc/com.atproto.server.createSession`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ identifier, password }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.message || "Invalid handle or App Password.");
+          }
+
+          saveSession({
+            did: data.did,
+            handle: data.handle,
+            accessJwt: data.accessJwt,
+            refreshJwt: data.refreshJwt,
+          });
+
+          updateView();
+        } catch (err) {
+          setStatus(loginStatus, err.message, "error");
+        } finally {
+          loginButton.disabled = false;
+        }
+      });
+
+      // Post Action
+      postForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = postText.value.trim();
+        if (!text) return;
+
+        let session = getSession();
+        if (!session) return;
+
+        postButton.disabled = true;
+        setStatus(composerStatus, "Posting...");
+
+        const facets = detectLinkFacets(text);
+        const record = {
+          $type: "app.bsky.feed.post",
+          text: text,
+          createdAt: new Date().toISOString(),
+          ...(facets ? { facets } : {}),
+        };
+
+        const executeCreateRecord = async (jwt) => {
+          return fetch(`${PDS_URL}/xrpc/com.atproto.repo.createRecord`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({
+              repo: session.did,
+              collection: "app.bsky.feed.post",
+              record: record,
+            }),
+          });
+        };
+
+        try {
+          let res = await executeCreateRecord(session.accessJwt);
+
+          // If expired, attempt transparent refresh once
+          if (res.status === 401 && session.refreshJwt) {
+            session = await refreshToken(session);
+            if (!session) return;
+            res = await executeCreateRecord(session.accessJwt);
+          }
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.message || "Failed to publish post.");
+          }
+
+          postText.value = "";
+          handleTextChange();
+          setStatus(composerStatus, "Posted successfully.", "success");
+          setTimeout(() => setStatus(composerStatus, ""), 3500);
+        } catch (err) {
+          setStatus(composerStatus, err.message, "error");
+          postButton.disabled = false;
+        }
+      });
+
+      // Disconnect Action
+      logoutButton.addEventListener("click", () => {
+        clearSession();
+        updateView();
+      });
+
+      postText.addEventListener("input", handleTextChange);
+
+      // Initial render check
+      updateView();
+      handleTextChange();
+    })();
+  </script>
+</body>
+</html>
